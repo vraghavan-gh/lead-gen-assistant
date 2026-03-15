@@ -15,7 +15,35 @@
 
 The Lead Gen Assistant is an enterprise-grade **multi-agent AI pipeline** that automates the lead qualification lifecycle — from a raw web form submission all the way to a Sales-owned opportunity.
 
-Built as a **sellable cookbook** that enterprises can purchase, customize, and deploy on their own infrastructure. Works with **Anthropic Claude, OpenAI GPT-4o, or Google Gemini** — bring your own LLM key.
+A production-ready AI cookbook enterprises can fork, customize, and deploy on their own infrastructure. Works with **Anthropic Claude, OpenAI GPT-4o, or Google Gemini** — bring your own LLM key.
+
+---
+
+## 📦 Two Editions
+
+### Community Edition (This Repo — Free)
+- Full multi-agent pipeline out of the box
+- Databricks Unity Catalog data model
+- Pluggable LLM — Anthropic, OpenAI, Gemini
+- Web form + live dashboard
+- Configurable scoring and bot detection
+- Deploy on any infrastructure
+
+### Enterprise Edition (Custom — Paid)
+Built for your specific enterprise environment:
+
+| Capability | Examples |
+|-----------|---------|
+| **CRM Integration** | Salesforce, HubSpot, Marketo, Microsoft Dynamics |
+| **Data Platform** | Databricks, Snowflake, BigQuery, Redshift |
+| **Identity & SSO** | Okta, Azure AD, Google Workspace |
+| **Notifications** | Slack, Teams, Email, PagerDuty |
+| **Policy Controls** | GDPR, SOC2, HIPAA, data residency |
+| **Custom Scoring** | Your qualification criteria and personas |
+| **Audit & Compliance** | Full audit trail, role-based access, data masking |
+| **Support** | Implementation, training, ongoing support |
+
+> 📩 **Interested in the Enterprise Edition?** Open an issue or contact us directly.
 
 ---
 

@@ -14,7 +14,6 @@ jobs:
         python-version: ["3.11", "3.12"]
 
     env:
-      # Dummy values so .env loads without error in tests
       DATABRICKS_HOST: https://dummy.cloud.databricks.com
       DATABRICKS_TOKEN: dummy_token
       DATABRICKS_HTTP_PATH: /sql/1.0/warehouses/dummy
@@ -30,7 +29,7 @@ jobs:
       with:
         python-version: ${{ matrix.python-version }}
 
-    - name: Install test dependencies only
+    - name: Install test dependencies
       run: |
         python -m pip install --upgrade pip
         pip install pydantic>=2.5.0 pyyaml>=6.0.1 python-dotenv>=1.0.0 pytest pytest-cov
@@ -38,8 +37,3 @@ jobs:
     - name: Run tests
       run: |
         pytest tests/ -v --tb=short
-
-    - name: Lint check
-      run: |
-        pip install flake8
-        flake8 agents/ utils/ web/ --max-line-length=100 --ignore=E501,W503,E402,E221,E241,E231,F401

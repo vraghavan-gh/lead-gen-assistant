@@ -1,0 +1,429 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Contact Us — Lead Gen Assistant</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      background: #0f1117;
+      color: #e2e8f0;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 40px 20px;
+    }
+
+    .container {
+      width: 100%;
+      max-width: 560px;
+    }
+
+    /* Header */
+    .header {
+      text-align: center;
+      margin-bottom: 40px;
+    }
+
+    .badge {
+      display: inline-block;
+      background: rgba(99, 179, 237, 0.15);
+      color: #63b3ed;
+      border: 1px solid rgba(99, 179, 237, 0.3);
+      padding: 4px 14px;
+      border-radius: 20px;
+      font-size: 12px;
+      font-weight: 600;
+      letter-spacing: 1px;
+      text-transform: uppercase;
+      margin-bottom: 16px;
+    }
+
+    .header h1 {
+      font-size: 32px;
+      font-weight: 700;
+      color: #f7fafc;
+      line-height: 1.2;
+      margin-bottom: 12px;
+    }
+
+    .header p {
+      color: #a0aec0;
+      font-size: 16px;
+      line-height: 1.6;
+    }
+
+    /* Card */
+    .card {
+      background: #1a1d27;
+      border: 1px solid #2d3748;
+      border-radius: 16px;
+      padding: 40px;
+    }
+
+    /* Form */
+    .form-row {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 16px;
+    }
+
+    .form-group {
+      margin-bottom: 20px;
+    }
+
+    label {
+      display: block;
+      font-size: 13px;
+      font-weight: 600;
+      color: #a0aec0;
+      margin-bottom: 6px;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    label .required {
+      color: #fc8181;
+      margin-left: 2px;
+    }
+
+    input, select, textarea {
+      width: 100%;
+      background: #0f1117;
+      border: 1px solid #2d3748;
+      border-radius: 8px;
+      padding: 10px 14px;
+      color: #e2e8f0;
+      font-size: 15px;
+      transition: border-color 0.2s;
+      outline: none;
+      appearance: none;
+    }
+
+    input:focus, select:focus, textarea:focus {
+      border-color: #63b3ed;
+      box-shadow: 0 0 0 3px rgba(99, 179, 237, 0.1);
+    }
+
+    input::placeholder, textarea::placeholder {
+      color: #4a5568;
+    }
+
+    select option {
+      background: #1a1d27;
+    }
+
+    textarea {
+      resize: vertical;
+      min-height: 100px;
+      font-family: inherit;
+    }
+
+    /* Checkbox */
+    .checkbox-group {
+      display: flex;
+      align-items: flex-start;
+      gap: 10px;
+      margin-bottom: 24px;
+    }
+
+    .checkbox-group input[type="checkbox"] {
+      width: 18px;
+      height: 18px;
+      min-width: 18px;
+      margin-top: 2px;
+      accent-color: #63b3ed;
+    }
+
+    .checkbox-group label {
+      text-transform: none;
+      letter-spacing: 0;
+      font-size: 13px;
+      color: #718096;
+      margin: 0;
+    }
+
+    /* Submit button */
+    .btn-submit {
+      width: 100%;
+      background: linear-gradient(135deg, #3182ce, #63b3ed);
+      color: white;
+      border: none;
+      border-radius: 8px;
+      padding: 14px;
+      font-size: 16px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: opacity 0.2s, transform 0.1s;
+      letter-spacing: 0.3px;
+    }
+
+    .btn-submit:hover  { opacity: 0.9; }
+    .btn-submit:active { transform: scale(0.99); }
+    .btn-submit:disabled { opacity: 0.5; cursor: not-allowed; }
+
+    /* Success / Error states */
+    .alert {
+      border-radius: 8px;
+      padding: 14px 18px;
+      font-size: 14px;
+      margin-bottom: 20px;
+      display: none;
+    }
+
+    .alert.success {
+      background: rgba(72, 187, 120, 0.15);
+      border: 1px solid rgba(72, 187, 120, 0.3);
+      color: #68d391;
+    }
+
+    .alert.error {
+      background: rgba(252, 129, 74, 0.15);
+      border: 1px solid rgba(252, 129, 74, 0.3);
+      color: #fc8181;
+    }
+
+    /* Pipeline indicator */
+    .pipeline-info {
+      margin-top: 24px;
+      padding: 14px 18px;
+      background: rgba(99, 179, 237, 0.05);
+      border: 1px solid rgba(99, 179, 237, 0.15);
+      border-radius: 8px;
+      font-size: 12px;
+      color: #718096;
+      text-align: center;
+    }
+
+    .pipeline-info span {
+      color: #63b3ed;
+      font-weight: 600;
+    }
+
+    .pipeline-steps {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      gap: 6px;
+      margin-top: 8px;
+      flex-wrap: wrap;
+    }
+
+    .step {
+      background: rgba(99, 179, 237, 0.1);
+      color: #63b3ed;
+      padding: 3px 10px;
+      border-radius: 12px;
+      font-size: 11px;
+      font-weight: 600;
+    }
+
+    .step-arrow { color: #4a5568; font-size: 10px; }
+
+    /* Footer */
+    .footer {
+      text-align: center;
+      margin-top: 24px;
+      font-size: 12px;
+      color: #4a5568;
+    }
+
+    .footer a { color: #63b3ed; text-decoration: none; }
+
+    @media (max-width: 480px) {
+      .form-row { grid-template-columns: 1fr; }
+      .card { padding: 24px; }
+      .header h1 { font-size: 26px; }
+    }
+  </style>
+</head>
+<body>
+
+  <div class="container">
+
+    <!-- Header -->
+    <div class="header">
+      <div class="badge">🎯 Lead Gen Assistant</div>
+      <h1>Let's Talk</h1>
+      <p>Tell us about your needs and our AI pipeline will route your request to the right team instantly.</p>
+    </div>
+
+    <!-- Form Card -->
+    <div class="card">
+
+      <div class="alert success" id="successMsg">
+        ✅ Thank you! Your request has been received. Our team will be in touch shortly.
+      </div>
+      <div class="alert error" id="errorMsg"></div>
+
+      <form id="leadForm">
+
+        <input type="hidden" name="page_load_time" id="pageLoadTime" />
+
+        <div class="form-row">
+          <div class="form-group">
+            <label>First Name <span class="required">*</span></label>
+            <input type="text" name="first_name" placeholder="Sarah" required />
+          </div>
+          <div class="form-group">
+            <label>Last Name <span class="required">*</span></label>
+            <input type="text" name="last_name" placeholder="Mitchell" required />
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label>Work Email <span class="required">*</span></label>
+          <input type="email" name="email" placeholder="sarah@company.com" required />
+        </div>
+
+        <div class="form-row">
+          <div class="form-group">
+            <label>Company</label>
+            <input type="text" name="company" placeholder="Acme Corp" />
+          </div>
+          <div class="form-group">
+            <label>Job Title</label>
+            <input type="text" name="job_title" placeholder="VP of Engineering" />
+          </div>
+        </div>
+
+        <div class="form-row">
+          <div class="form-group">
+            <label>Company Size</label>
+            <select name="company_size">
+              <option value="">Select size</option>
+              <option value="1-10">1–10 employees</option>
+              <option value="11-50">11–50 employees</option>
+              <option value="51-200">51–200 employees</option>
+              <option value="201-1000">201–1,000 employees</option>
+              <option value="1001-5000">1,001–5,000 employees</option>
+              <option value="5000+">5,000+ employees</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label>Industry</label>
+            <select name="industry">
+              <option value="">Select industry</option>
+              <option value="Technology">Technology</option>
+              <option value="Financial Services">Financial Services</option>
+              <option value="Healthcare">Healthcare</option>
+              <option value="Manufacturing">Manufacturing</option>
+              <option value="Retail">Retail</option>
+              <option value="Education">Education</option>
+              <option value="Government">Government</option>
+              <option value="Other">Other</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="form-row">
+          <div class="form-group">
+            <label>Phone</label>
+            <input type="tel" name="phone" placeholder="+1 555 0100" />
+          </div>
+          <div class="form-group">
+            <label>I'm interested in</label>
+            <select name="form_type">
+              <option value="demo_request">Product Demo</option>
+              <option value="contact_us">General Inquiry</option>
+              <option value="free_trial">Free Trial</option>
+              <option value="whitepaper_download">Resources / Whitepaper</option>
+              <option value="webinar_registration">Webinar</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label>Message</label>
+          <textarea name="message" placeholder="Tell us about your use case, challenges, or what you're looking for..."></textarea>
+        </div>
+
+        <div class="checkbox-group">
+          <input type="checkbox" name="opt_in_marketing" id="optIn" checked />
+          <label for="optIn">I agree to receive communications about products and services. You can unsubscribe at any time.</label>
+        </div>
+
+        <button type="submit" class="btn-submit" id="submitBtn">
+          Submit Request
+        </button>
+
+      </form>
+
+      <!-- Pipeline info -->
+      <div class="pipeline-info">
+        Powered by <span>Lead Gen Assistant</span> — AI-driven qualification pipeline
+        <div class="pipeline-steps">
+          <span class="step">Triage</span>
+          <span class="step-arrow">→</span>
+          <span class="step">MQL Score</span>
+          <span class="step-arrow">→</span>
+          <span class="step">BANT Qualify</span>
+          <span class="step-arrow">→</span>
+          <span class="step">Sales Handoff</span>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- Footer -->
+    <div class="footer">
+      <a href="/dashboard">View Pipeline Dashboard</a> ·
+      Built with Claude AI + Databricks ·
+      LLM: {{ provider.provider }} / {{ provider.model }}
+    </div>
+
+  </div>
+
+  <script>
+    // Record page load time for bot detection
+    document.getElementById("pageLoadTime").value = new Date().toISOString();
+
+    const form     = document.getElementById("leadForm");
+    const btn      = document.getElementById("submitBtn");
+    const successEl= document.getElementById("successMsg");
+    const errorEl  = document.getElementById("errorMsg");
+
+    form.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      btn.disabled    = true;
+      btn.textContent = "Submitting...";
+      successEl.style.display = "none";
+      errorEl.style.display   = "none";
+
+      const data = Object.fromEntries(new FormData(form));
+      data.opt_in_marketing = form.querySelector('[name="opt_in_marketing"]').checked;
+
+      try {
+        const res = await fetch("/webhook", {
+          method:  "POST",
+          headers: { "Content-Type": "application/json" },
+          body:    JSON.stringify(data),
+        });
+
+        const json = await res.json();
+
+        if (res.ok && json.success) {
+          successEl.style.display = "block";
+          form.reset();
+          form.querySelector('[name="opt_in_marketing"]').checked = true;
+        } else {
+          errorEl.textContent     = json.error || "Something went wrong. Please try again.";
+          errorEl.style.display   = "block";
+        }
+      } catch (err) {
+        errorEl.textContent   = "Network error. Please check your connection and try again.";
+        errorEl.style.display = "block";
+      }
+
+      btn.disabled    = false;
+      btn.textContent = "Submit Request";
+    });
+  </script>
+
+</body>
+</html>

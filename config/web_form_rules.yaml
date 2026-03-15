@@ -1,0 +1,243 @@
+# ============================================================
+# Lead Gen Assistant - Web Form Rules Configuration
+# All bot detection, quality scoring, and sensitivity settings
+# Enterprise-customizable — no code changes needed
+# ============================================================
+
+# ----------------------------
+# Sensitivity Profile
+# Controls how aggressively the Web Form Agent flags leads
+# Values: low | medium | high
+#   low    = permissive, fewer flags, higher auto-accept rate
+#   medium = balanced (recommended for most enterprises)
+#   high   = strict, more flags, lower auto-accept rate
+# ----------------------------
+sensitivity: medium
+
+# ----------------------------
+# Bot Risk Thresholds
+# Maps numeric score (0-100) to risk level label
+# Tune these based on your traffic quality
+# ----------------------------
+bot_risk_thresholds:
+  low:      { max: 30,  label: low,      action: auto_accept }
+  medium:   { max: 55,  label: medium,   action: prompt }
+  high:     { max: 75,  label: high,     action: prompt }
+  critical: { max: 100, label: critical, action: auto_reject }
+
+# ----------------------------
+# Auto-accept / Auto-reject Rules
+# Bypass human review for clear cases
+# ----------------------------
+auto_rules:
+  # Auto-reject if bot_risk_score >= this value
+  auto_reject_above_bot_risk: 90
+
+  # Auto-accept if lead_quality_score >= this value AND bot_risk_score <= 20
+  auto_accept_above_quality: 80
+
+  # Human review timeout in seconds before auto-accept
+  human_review_timeout_seconds: 60
+
+# ----------------------------
+# Form Timing Rules
+# How fast is too fast to be human?
+# ----------------------------
+timing:
+  # Minimum seconds a human takes to fill out a form
+  # Anything below this is flagged as possible bot
+  min_human_fill_seconds:
+    low:    3    # permissive
+    medium: 5    # default
+    high:   8    # strict
+
+  # Use page_load_time hidden field from browser for accuracy
+  # Falls back to server-side timestamp if not present
+  use_browser_timestamp: true
+
+# ----------------------------
+# Personal Email Domains
+# Leads from these domains get flagged
+# Add or remove domains for your use case
+# ----------------------------
+personal_email_domains:
+  - gmail.com
+  - yahoo.com
+  - hotmail.com
+  - outlook.com
+  - aol.com
+  - icloud.com
+  - mail.com
+  - protonmail.com
+  - live.com
+  - msn.com
+  - yahoo.co.uk
+  - googlemail.com
+
+# ----------------------------
+# Spam Keywords
+# Flagged in message field
+# ----------------------------
+spam_keywords:
+  - free money
+  - lottery
+  - winner
+  - click here
+  - make money
+  - work from home
+  - guaranteed
+  - no risk
+  - limited time
+  - act now
+  - congratulations
+  - you have been selected
+  - test
+  - testing
+  - asdf
+  - qwerty
+  - "123456"
+  - hello world
+  - viagra
+  - casino
+
+# ----------------------------
+# Gibberish Name Detection
+# Rules for flagging fake names
+# ----------------------------
+gibberish_names:
+  # Minimum character length for a valid name
+  min_length: 2
+
+  # Maximum repeated characters e.g. "aaaa" = 4
+  max_repeated_chars: 3
+
+  # Minimum unique characters in a name
+  min_unique_chars: 3
+
+  # Flag if name contains only numbers
+  flag_numeric_only: true
+
+  # Common test/bot names to flag explicitly
+  # These are checked case-insensitively
+  blocked_names:
+    - test
+    - testing
+    - tester
+    - asdf
+    - qwerty
+    - admin
+    - user
+    - guest
+    - demo
+    - sample
+    - example
+    - fake
+    - bot
+    - robot
+    - anonymous
+
+# ----------------------------
+# Common Name Sensitivity
+# "John Smith" type names get extra scrutiny
+# Only applies when sensitivity = high
+# ----------------------------
+common_names:
+  enabled_on_sensitivity: high   # only flag on high sensitivity
+  flag_as: low_risk              # don't penalize heavily — just note it
+  common_combinations:
+    - [john, smith]
+    - [jane, doe]
+    - [john, doe]
+    - [test, user]
+    - [first, last]
+    - [foo, bar]
+
+# ----------------------------
+# Required Fields
+# Missing fields increase bot risk score
+# ----------------------------
+required_fields:
+  - field: company
+    penalty: 15           # bot risk points added if missing
+    flag_message: "Missing company name"
+
+  - field: job_title
+    penalty: 10
+    flag_message: "Missing job title"
+
+  - field: first_name
+    penalty: 20
+    flag_message: "Missing first name"
+
+  - field: last_name
+    penalty: 15
+    flag_message: "Missing last name"
+
+# ----------------------------
+# Message Quality Rules
+# Short or generic messages get flagged
+# ----------------------------
+message_quality:
+  # Minimum word count for a quality message
+  min_words:
+    low:    0    # no minimum
+    medium: 3
+    high:   5
+
+  # Flag if message is suspiciously short for the form type
+  form_type_minimums:
+    demo_request:         5    # "I want a demo" is too short
+    contact_us:           3
+    whitepaper_download:  0    # no message needed for content download
+    newsletter_signup:    0
+    webinar_registration: 0
+    free_trial:           3
+
+# ----------------------------
+# Bot Risk Score Weights
+# How much each signal contributes to bot_risk_score
+# Total should be tunable — Claude normalizes the final score
+# ----------------------------
+bot_risk_weights:
+  personal_email:         20
+  missing_company:        15
+  missing_job_title:      10
+  spam_keyword:           30
+  gibberish_name:         25
+  fast_submission:        20
+  blocked_name:           40
+  short_message:          10
+  common_name:             5   # low weight — many real people have common names
+
+# ----------------------------
+# Lead Quality Score Weights
+# Positive signals that increase quality score
+# ----------------------------
+quality_weights:
+  business_email:         20
+  has_company:            15
+  has_job_title:          10
+  senior_title_keywords:  15   # VP, Director, Head of, C-Suite
+  enterprise_company_size: 10  # 1001+
+  detailed_message:       15   # message > 20 words
+  demo_request_form:      15   # highest intent form type
+  has_phone:               5
+  has_linkedin:            5
+
+# Senior title keywords for quality scoring
+senior_title_keywords:
+  - ceo
+  - cto
+  - cio
+  - cfo
+  - vp
+  - vice president
+  - director
+  - head of
+  - chief
+  - svp
+  - evp
+  - president
+  - founder
+  - owner
+  - partner

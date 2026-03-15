@@ -1,0 +1,311 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Pipeline Dashboard — Lead Gen Assistant</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      background: #0f1117;
+      color: #e2e8f0;
+      min-height: 100vh;
+      padding: 40px 24px;
+    }
+
+    .header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 32px;
+      flex-wrap: wrap;
+      gap: 16px;
+    }
+
+    .header h1 { font-size: 24px; font-weight: 700; color: #f7fafc; }
+    .header p  { font-size: 13px; color: #718096; margin-top: 4px; }
+
+    .btn {
+      background: linear-gradient(135deg, #3182ce, #63b3ed);
+      color: white;
+      border: none;
+      border-radius: 8px;
+      padding: 10px 20px;
+      font-size: 14px;
+      font-weight: 600;
+      cursor: pointer;
+      text-decoration: none;
+      display: inline-block;
+    }
+
+    /* Stats row */
+    .stats {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+      gap: 16px;
+      margin-bottom: 32px;
+    }
+
+    .stat-card {
+      background: #1a1d27;
+      border: 1px solid #2d3748;
+      border-radius: 12px;
+      padding: 20px;
+      text-align: center;
+    }
+
+    .stat-card .value {
+      font-size: 32px;
+      font-weight: 700;
+      color: #63b3ed;
+      line-height: 1;
+      margin-bottom: 6px;
+    }
+
+    .stat-card .label {
+      font-size: 12px;
+      color: #718096;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    .stat-card.green  .value { color: #68d391; }
+    .stat-card.yellow .value { color: #f6e05e; }
+    .stat-card.red    .value { color: #fc8181; }
+    .stat-card.purple .value { color: #b794f4; }
+
+    /* Table */
+    .table-card {
+      background: #1a1d27;
+      border: 1px solid #2d3748;
+      border-radius: 12px;
+      overflow: hidden;
+    }
+
+    .table-header {
+      padding: 16px 24px;
+      border-bottom: 1px solid #2d3748;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .table-header h2 { font-size: 15px; font-weight: 600; color: #e2e8f0; }
+
+    .live-dot {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 12px;
+      color: #68d391;
+    }
+
+    .live-dot::before {
+      content: "";
+      width: 8px;
+      height: 8px;
+      background: #68d391;
+      border-radius: 50%;
+      animation: pulse 1.5s infinite;
+    }
+
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50%       { opacity: 0.3; }
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 13px;
+    }
+
+    th {
+      text-align: left;
+      padding: 12px 24px;
+      font-size: 11px;
+      font-weight: 600;
+      color: #718096;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      border-bottom: 1px solid #2d3748;
+    }
+
+    td {
+      padding: 14px 24px;
+      border-bottom: 1px solid #1e2333;
+      color: #e2e8f0;
+      vertical-align: middle;
+    }
+
+    tr:last-child td { border-bottom: none; }
+    tr:hover td { background: rgba(255,255,255,0.02); }
+
+    .status-badge {
+      display: inline-block;
+      padding: 3px 10px;
+      border-radius: 12px;
+      font-size: 11px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    .status-sales_owned   { background: rgba(72,187,120,0.15);  color: #68d391; }
+    .status-sql           { background: rgba(99,179,237,0.15);  color: #63b3ed; }
+    .status-mql           { background: rgba(246,224,94,0.15);  color: #f6e05e; }
+    .status-nurture       { background: rgba(183,148,244,0.15); color: #b794f4; }
+    .status-mql_nurture   { background: rgba(183,148,244,0.15); color: #b794f4; }
+    .status-rejected      { background: rgba(252,129,74,0.15);  color: #fc8181; }
+    .status-needs_human_review { background: rgba(246,173,85,0.15); color: #f6ad55; }
+
+    .score-pill {
+      display: inline-block;
+      padding: 2px 8px;
+      border-radius: 8px;
+      font-size: 12px;
+      font-weight: 600;
+      background: rgba(99,179,237,0.1);
+      color: #63b3ed;
+    }
+
+    .empty {
+      padding: 48px;
+      text-align: center;
+      color: #4a5568;
+    }
+
+    .empty h3 { font-size: 16px; margin-bottom: 8px; color: #718096; }
+    .empty p  { font-size: 13px; }
+
+    .footer {
+      margin-top: 24px;
+      text-align: center;
+      font-size: 12px;
+      color: #4a5568;
+    }
+
+    .footer a { color: #63b3ed; text-decoration: none; }
+  </style>
+</head>
+<body>
+
+  <div class="header">
+    <div>
+      <h1>🎯 Pipeline Dashboard</h1>
+      <p>Live lead qualification results — auto-refreshes every 10 seconds</p>
+    </div>
+    <a href="/" class="btn">+ Submit Lead</a>
+  </div>
+
+  <!-- Stats -->
+  <div class="stats" id="stats">
+    <div class="stat-card">
+      <div class="value" id="stat-total">0</div>
+      <div class="label">Total Leads</div>
+    </div>
+    <div class="stat-card green">
+      <div class="value" id="stat-sales">0</div>
+      <div class="label">Sales Owned</div>
+    </div>
+    <div class="stat-card">
+      <div class="value" id="stat-sql">0</div>
+      <div class="label">SQL</div>
+    </div>
+    <div class="stat-card yellow">
+      <div class="value" id="stat-mql">0</div>
+      <div class="label">MQL</div>
+    </div>
+    <div class="stat-card purple">
+      <div class="value" id="stat-nurture">0</div>
+      <div class="label">Nurture</div>
+    </div>
+    <div class="stat-card red">
+      <div class="value" id="stat-rejected">0</div>
+      <div class="label">Rejected</div>
+    </div>
+  </div>
+
+  <!-- Results Table -->
+  <div class="table-card">
+    <div class="table-header">
+      <h2>Recent Leads</h2>
+      <div class="live-dot">Live</div>
+    </div>
+
+    <div id="tableContainer">
+      {% if results %}
+      <table>
+        <thead>
+          <tr>
+            <th>Lead ID</th>
+            <th>Name</th>
+            <th>Company</th>
+            <th>Status</th>
+            <th>MQL Score</th>
+            <th>BANT Score</th>
+            <th>Assigned Rep</th>
+            <th>Submitted</th>
+          </tr>
+        </thead>
+        <tbody id="tableBody">
+          {% for r in results %}
+          <tr>
+            <td><code style="font-size:11px; color:#718096">{{ r.lead_id or '—' }}</code></td>
+            <td>{{ r.name or '—' }}</td>
+            <td>{{ r.company or '—' }}</td>
+            <td><span class="status-badge status-{{ r.final_status }}">{{ r.final_status | replace('_',' ') }}</span></td>
+            <td>{% if r.mql_score %}<span class="score-pill">{{ r.mql_score }}/100</span>{% else %}—{% endif %}</td>
+            <td>{% if r.sql_score %}<span class="score-pill">{{ r.sql_score }}/100</span>{% else %}—{% endif %}</td>
+            <td>{{ r.assigned_rep or '—' }}</td>
+            <td style="color:#718096; font-size:12px">{{ r.submitted_at[:19] if r.submitted_at else '—' }}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+      {% else %}
+      <div class="empty">
+        <h3>No leads yet</h3>
+        <p>Submit a lead from the <a href="/">web form</a> to see results here.</p>
+      </div>
+      {% endif %}
+    </div>
+  </div>
+
+  <div class="footer">
+    <a href="/">Submit Lead</a> ·
+    Lead Gen Assistant v1.0 ·
+    Powered by Claude AI + Databricks
+  </div>
+
+  <script>
+    function updateStats(results) {
+      const counts = { total: results.length, sales_owned: 0, sql: 0, mql: 0, nurture: 0, mql_nurture: 0, rejected: 0 };
+      results.forEach(r => {
+        if (counts[r.final_status] !== undefined) counts[r.final_status]++;
+      });
+      document.getElementById("stat-total").textContent   = counts.total;
+      document.getElementById("stat-sales").textContent   = counts.sales_owned;
+      document.getElementById("stat-sql").textContent     = counts.sql;
+      document.getElementById("stat-mql").textContent     = counts.mql;
+      document.getElementById("stat-nurture").textContent = counts.nurture + counts.mql_nurture;
+      document.getElementById("stat-rejected").textContent= counts.rejected;
+    }
+
+    async function refresh() {
+      try {
+        const res     = await fetch("/api/results");
+        const results = await res.json();
+        updateStats(results);
+      } catch (e) { /* silent fail */ }
+    }
+
+    // Auto-refresh every 10 seconds
+    setInterval(refresh, 10000);
+    refresh();
+  </script>
+
+</body>
+</html>

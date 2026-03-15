@@ -1,0 +1,170 @@
+# ============================================================
+# Lead Gen Assistant - Scoring Configuration
+# Enterprise-customizable scoring rules for MQL and SQL
+# ============================================================
+
+# ----------------------------
+# MQL Scoring Configuration
+# ----------------------------
+mql:
+  threshold: 50  # Minimum score to qualify as MQL
+
+  scoring_rules:
+    # Demographic / Firmographic
+    job_title:
+      weight: 20
+      qualifying_titles:
+        - CTO
+        - CIO
+        - VP Engineering
+        - VP Sales
+        - VP Marketing
+        - Director
+        - Head of
+        - Chief
+      score: 20
+      default_score: 5
+
+    company_size:
+      weight: 15
+      tiers:
+        enterprise: { min_employees: 1000, score: 15 }
+        mid_market: { min_employees: 200, score: 10 }
+        smb: { min_employees: 50, score: 5 }
+        startup: { min_employees: 1, score: 2 }
+
+    industry:
+      weight: 10
+      high_value_industries:
+        - Technology
+        - Financial Services
+        - Healthcare
+        - Manufacturing
+        - Retail
+      score: 10
+      default_score: 3
+
+    # Behavioral
+    form_type:
+      weight: 20
+      scores:
+        demo_request: 20
+        contact_us: 15
+        whitepaper_download: 10
+        newsletter_signup: 5
+        webinar_registration: 8
+
+    email_domain:
+      weight: 10
+      business_email_score: 10
+      personal_email_score: 0
+      personal_domains:
+        - gmail.com
+        - yahoo.com
+        - hotmail.com
+        - outlook.com
+        - aol.com
+
+    message_intent:
+      weight: 15
+      high_intent_keywords:
+        - pricing
+        - demo
+        - trial
+        - purchase
+        - buy
+        - budget
+        - urgent
+        - asap
+        - integrate
+        - migrate
+      score_per_keyword: 3
+      max_score: 15
+
+    completeness:
+      weight: 10
+      required_fields:
+        - first_name
+        - last_name
+        - email
+        - company
+        - phone
+      score_per_field: 2
+
+# ----------------------------
+# SQL Scoring Configuration
+# ----------------------------
+sql:
+  threshold: 70  # Minimum score to qualify as SQL
+
+  bant_scoring:
+    budget:
+      weight: 25
+      indicators:
+        confirmed: 25
+        implied: 15
+        unknown: 0
+
+    authority:
+      weight: 25
+      decision_maker_titles:
+        - CEO
+        - CTO
+        - CIO
+        - CFO
+        - VP
+        - Director
+        - Head of
+      score: 25
+      influencer_score: 15
+      unknown_score: 5
+
+    need:
+      weight: 25
+      strong_need_keywords:
+        - pain point
+        - challenge
+        - problem
+        - struggling
+        - need
+        - looking for
+        - evaluating
+        - replacing
+      score_per_keyword: 5
+      max_score: 25
+
+    timeline:
+      weight: 25
+      scores:
+        immediate: 25        # < 30 days
+        short_term: 20       # 30-90 days
+        medium_term: 10      # 90-180 days
+        long_term: 5         # > 180 days
+        unknown: 0
+
+# ----------------------------
+# Rejection Rules
+# ----------------------------
+rejection:
+  auto_reject_conditions:
+    - personal_email_only: true
+    - missing_required_fields: [email, company]
+    - spam_keywords:
+        - free money
+        - lottery
+        - winner
+        - unsubscribe
+
+# ----------------------------
+# Sales Routing
+# ----------------------------
+sales_routing:
+  enterprise:
+    min_employees: 1000
+    assigned_team: enterprise_sales
+  mid_market:
+    min_employees: 200
+    assigned_team: mid_market_sales
+  smb:
+    min_employees: 1
+    assigned_team: smb_sales

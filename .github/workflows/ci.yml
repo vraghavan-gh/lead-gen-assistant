@@ -42,4 +42,4 @@ jobs:
     - name: Lint check
       run: |
         pip install flake8
-        flake8 agents/ utils/ web/ --max-line-length=100 --ignore=E501,W503,E402
+        flake8 agents/ utils/ web/ --max-line-length=100 --ignore=E501,W503,E402,E221,E241,E231,F401

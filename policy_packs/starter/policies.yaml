@@ -1,0 +1,332 @@
+# ============================================================
+# LangGuard Starter Policy Pack — Lead Gen Assistant
+# ============================================================
+# Version:    1.0.0
+# Compatible: Lead Gen Assistant v1.0+
+# Author:     LangGuard
+#
+# This starter pack provides out-of-the-box governance for
+# the Lead Gen Assistant multi-agent pipeline. Seven policies
+# cover cost control, data privacy, human oversight, audit,
+# and real-time agent transparency.
+#
+# Each policy has three possible enforcement actions:
+#   allow     — proceed normally
+#   deny      — block the action, log the reason
+#   escalate  — pause and route to human review
+#
+# To customize thresholds, edit the config block per policy.
+# To disable a policy, set enabled: false.
+# ============================================================
+
+pack:
+  name: starter
+  version: 1.0.0
+  description: >
+    LangGuard Starter Policy Pack for the Lead Gen Assistant.
+    Seven policies that give enterprises immediate visibility
+    and control over their AI agents — no configuration required.
+  cookbook: lead-gen-assistant
+  langguard_tier: free
+
+# ============================================================
+# Policy 1 — Agent Spend Guard
+# Prevents runaway LLM costs by capping spend per lead run
+# ============================================================
+policies:
+
+  - id: spend_guard
+    name: Agent Spend Guard
+    enabled: true
+    description: >
+      Caps the total LLM token spend per lead processing run.
+      Blocks the pipeline if cumulative cost exceeds the threshold.
+      Protects against runaway agent loops and unexpected cost spikes.
+    category: cost_control
+    trigger: before_llm_call
+    agents: [WebFormAgent, TriageAgent, MQLAgent, SQLAgent, AnalyticsAgent]
+
+    config:
+      max_cost_per_run_usd: 0.50        # Maximum spend per lead end-to-end
+      max_cost_per_agent_usd: 0.15      # Maximum spend per individual agent call
+      warn_at_pct: 80                   # Warn when 80% of budget consumed
+      currency: USD
+
+    actions:
+      under_limit:  allow
+      at_warning:   allow               # Allow but log warning
+      over_limit:   deny               # Block and log
+
+    log_message: "Spend Guard: LLM cost ${actual_cost} exceeds limit ${max_cost} for lead {lead_id}"
+    user_message: "⚠️ Agent spend limit reached — lead {lead_id} blocked. Review spend_guard policy."
+
+# ============================================================
+# Policy 2 — PII Detection
+# Detects sensitive personal data before it enters Databricks
+# ============================================================
+
+  - id: pii_detection
+    name: PII Detection Policy
+    enabled: true
+    description: >
+      Scans incoming lead data for sensitive personal information
+      before it is written to Databricks. Flags or blocks leads
+      containing SSN, credit card numbers, passport numbers,
+      medical record numbers, or other regulated PII.
+    category: data_privacy
+    trigger: before_databricks_write
+    agents: [WebFormAgent, TriageAgent]
+
+    config:
+      pii_patterns:
+        ssn:
+          pattern: '\b\d{3}-\d{2}-\d{4}\b'
+          severity: critical
+          action: deny
+        credit_card:
+          pattern: '\b(?:\d{4}[-\s]?){3}\d{4}\b'
+          severity: critical
+          action: deny
+        passport:
+          pattern: '\b[A-Z]{1,2}\d{6,9}\b'
+          severity: high
+          action: escalate
+        phone_number:
+          pattern: '\b(\+\d{1,3}[-.\s]?)?\(?\d{3}\)?[-.\s]?\d{3}[-.\s]?\d{4}\b'
+          severity: low
+          action: allow              # Phone is expected — just log it
+        email:
+          pattern: '\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b'
+          severity: low
+          action: allow              # Email is expected — just log it
+
+      scan_fields: [message, first_name, last_name, company, raw_payload]
+      mask_in_logs: true             # Mask detected PII in audit logs
+
+    actions:
+      clean:    allow
+      low:      allow                # Log only
+      high:     escalate             # Route to human review
+      critical: deny                 # Block immediately
+
+    log_message: "PII Detection: {pii_type} detected in field '{field}' for lead {lead_id}"
+    user_message: "🔒 PII detected in lead {lead_id} — blocked before Databricks write."
+
+# ============================================================
+# Policy 3 — High Value Deal Approval Gate
+# Requires human confirmation for large deals before handoff
+# ============================================================
+
+  - id: approval_gate
+    name: High Value Deal Approval Gate
+    enabled: true
+    description: >
+      Pauses the pipeline and requires explicit human confirmation
+      before a high-value SQL lead is handed off to a sales rep.
+      Prevents large deals from being routed incorrectly or prematurely.
+    category: human_oversight
+    trigger: before_sales_handoff
+    agents: [SQLAgent]
+
+    config:
+      deal_size_thresholds:
+        under_50k:    allow           # Auto-proceed for small deals
+        50k_to_200k:  allow           # Auto-proceed for mid deals
+        over_200k:    escalate        # Require human approval
+
+      bant_score_thresholds:
+        high_confidence:              # BANT >= 85 — auto-proceed
+          min_bant: 85
+          action: allow
+        low_confidence:               # BANT < 60 — always escalate
+          max_bant: 60
+          action: escalate
+
+      timeout_seconds: 300            # 5 minutes before auto-escalation to manager
+      escalate_to: sales_manager
+
+    actions:
+      approved:  allow
+      timeout:   escalate
+      denied:    deny
+
+    log_message: "Approval Gate: SQL lead {sql_id} requires approval — deal size {deal_size}, BANT {bant_score}"
+    user_message: "✋ High-value lead {sql_id} paused — awaiting human approval before handoff to {rep_name}."
+
+# ============================================================
+# Policy 4 — Retry & Fallback
+# Handles LLM failures gracefully — never silently drops a lead
+# ============================================================
+
+  - id: retry_fallback
+    name: Retry and Fallback Policy
+    enabled: true
+    description: >
+      When an LLM call fails, retries once with exponential backoff.
+      If the retry also fails, routes the lead to human review rather
+      than silently dropping it. Ensures no lead is ever lost due to
+      a transient LLM or network failure.
+    category: reliability
+    trigger: on_llm_failure
+    agents: [WebFormAgent, TriageAgent, MQLAgent, SQLAgent, AnalyticsAgent]
+
+    config:
+      max_retries: 1                  # Retry once before escalating
+      retry_delay_seconds: 2          # Wait before retry
+      backoff_multiplier: 2           # Exponential backoff factor
+
+      fallback_actions:
+        WebFormAgent:  escalate       # Route to human form review
+        TriageAgent:   escalate       # Route to human triage
+        MQLAgent:      escalate       # Route to human MQL review
+        SQLAgent:      escalate       # Route to human SQL review
+        AnalyticsAgent: allow         # Analytics failures are non-blocking
+
+      alert_on_retry: true            # Log every retry attempt
+      alert_on_fallback: true         # Alert when human review triggered
+
+    actions:
+      retry_success: allow
+      retry_failure: escalate
+      non_retryable: escalate
+
+    log_message: "Retry/Fallback: {agent} failed for lead {lead_id} — {error}. Routing to human review."
+    user_message: "⚡ Agent failure detected — lead {lead_id} routed to human review. Error: {error}"
+
+# ============================================================
+# Policy 5 — Full Decision Audit
+# Logs every agent decision with full reasoning and metadata
+# ============================================================
+
+  - id: decision_audit
+    name: Full Decision Audit Policy
+    enabled: true
+    description: >
+      Creates an immutable audit record for every agent decision
+      in the pipeline. Captures the decision, reasoning, confidence
+      score, timestamp, agent version, and input data hash.
+      Essential for compliance, debugging, and model governance.
+    category: audit_compliance
+    trigger: after_every_decision
+    agents: [WebFormAgent, TriageAgent, MQLAgent, SQLAgent, AnalyticsAgent]
+
+    config:
+      capture_fields:
+        - decision
+        - reasoning
+        - confidence_score
+        - input_data_hash          # Hash of input — not raw data for privacy
+        - agent_version
+        - llm_model
+        - llm_tokens_used
+        - duration_ms
+        - timestamp_utc
+        - lead_id
+        - policy_checks_run
+
+      retention_days: 365           # Keep audit logs for 1 year
+      immutable: true               # Audit logs cannot be modified or deleted
+      export_format: jsonl          # For SIEM integration
+
+    actions:
+      always: allow                 # Audit never blocks — always logs
+
+    log_message: "Audit: {agent} decision '{decision}' for lead {lead_id} — confidence {confidence}%"
+
+# ============================================================
+# Policy 6 — Duplicate Detection
+# Blocks reprocessing of leads submitted within 30 days
+# ============================================================
+
+  - id: duplicate_detection
+    name: Duplicate Lead Detection
+    enabled: true
+    description: >
+      Checks if a lead with the same email address has been submitted
+      within the configured lookback window. Blocks duplicate processing
+      to prevent wasted LLM spend and duplicate sales rep assignments.
+    category: pipeline_control
+    trigger: before_pipeline_start
+    agents: [WebFormAgent]
+
+    config:
+      lookback_days: 30             # Check for duplicates in last 30 days
+      match_fields: [email]         # Fields used for duplicate detection
+      check_statuses:               # Only block if previous lead is in these statuses
+        - accepted
+        - mql
+        - sql
+        - sales_owned
+
+      allow_resubmit_statuses:      # Always allow resubmission if previous was:
+        - rejected
+        - nurture
+
+    actions:
+      unique:     allow
+      duplicate:  deny
+
+    log_message: "Duplicate: Lead {email} already exists as {existing_lead_id} (status: {status})"
+    user_message: "🔄 Duplicate detected — {email} was already submitted {days_ago} days ago as {existing_lead_id}."
+
+# ============================================================
+# Policy 7 — Agent Tool Transparency
+# Real-time visibility into every tool access and action
+# ============================================================
+
+  - id: tool_transparency
+    name: Agent Tool Transparency
+    enabled: true
+    description: >
+      Captures and surfaces real-time visibility into every tool
+      that each agent accesses, what inputs were passed, what outputs
+      were returned, and how long each call took. Builds a complete
+      tool access map for every lead processed through the pipeline.
+      Essential for security audits, compliance reviews, and debugging.
+    category: transparency
+    trigger: wrap_all_tool_calls
+    agents: [WebFormAgent, TriageAgent, MQLAgent, SQLAgent, AnalyticsAgent]
+
+    config:
+      tracked_tools:
+        claude_api:
+          track_inputs: false        # Don't log full prompts — too large
+          track_outputs: false       # Don't log full responses — too large
+          track_tokens: true         # Track token usage
+          track_duration: true
+          track_model: true
+
+        databricks_read:
+          track_inputs: true         # Log which table and query type
+          track_outputs: false       # Don't log raw data — PII risk
+          track_row_count: true      # Log how many rows accessed
+          track_duration: true
+
+        databricks_write:
+          track_inputs: true         # Log which table written to
+          track_outputs: true        # Log success/failure + row count
+          track_duration: true
+
+        rules_engine:
+          track_inputs: true
+          track_outputs: true
+          track_duration: true
+
+      display_realtime: true         # Show tool calls in terminal as they happen
+      build_access_map: true         # Build per-lead tool access summary
+
+      # Alert if agent accesses unexpected tools
+      alert_on_unexpected_tool: true
+      expected_tools_per_agent:
+        WebFormAgent:  [claude_api, rules_engine]
+        TriageAgent:   [claude_api, databricks_write]
+        MQLAgent:      [claude_api, databricks_read, databricks_write]
+        SQLAgent:      [claude_api, databricks_read, databricks_write]
+        AnalyticsAgent: [claude_api, databricks_read]
+
+    actions:
+      expected:   allow              # Expected tool access — log and proceed
+      unexpected: escalate           # Unexpected tool access — alert and escalate
+
+    log_message: "Tool: {agent} called {tool} — duration {duration_ms}ms, status {status}"
+    user_message: "🔧 Agent Tool Access: {agent} → {tool} ({duration_ms}ms)"

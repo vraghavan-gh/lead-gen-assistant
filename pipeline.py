@@ -1,9 +1,13 @@
 """
 Lead Gen Assistant - Pipeline Orchestrator
-Coordinates the multi-agent pipeline:
-  Raw Lead → Triage → MQL → SQL → Sales Handoff
+Coordinates the multi-agent pipeline with LangGuard policy enforcement.
+
+Flow:
+  Web Form → Web Form Agent → Triage → MQL → SQL → Sales Handoff
+  LangGuard policies enforced at each stage.
 """
 
+import os
 import time
 from typing import Optional
 from rich.console import Console
@@ -19,16 +23,18 @@ from utils.databricks_client import DatabricksClient
 
 console = Console()
 
+LANGGUARD_ENABLED = os.getenv("LANGGUARD_ENABLED", "true").lower() == "true"
+
+if LANGGUARD_ENABLED:
+    from policy_packs.starter.enforcement.policy_engine import policy_engine
+else:
+    policy_engine = None
+
 
 class LeadGenPipeline:
     """
-    Orchestrates the full multi-agent lead qualification pipeline.
-
-    Flow:
-      1. Triage Agent    — validates raw lead, accept/reject
-      2. MQL Agent       — scores and enriches accepted lead
-      3. SQL Agent       — BANT qualifies MQL → SQL
-      4. Analytics Agent — reports on any lead or full funnel
+    Orchestrates the full multi-agent lead qualification pipeline
+    with LangGuard policy enforcement at every stage.
     """
 
     def __init__(self):
@@ -39,16 +45,13 @@ class LeadGenPipeline:
         self.analytics= AnalyticsAgent(self.db)
 
     def process_lead(self, lead_input: RawLeadInput) -> dict:
-        """
-        Run a raw lead through the full pipeline.
-        Returns a summary dict of all agent results.
-        """
         start = time.time()
 
         console.print(Panel(
             f"[bold cyan]🚀 Lead Gen Pipeline Starting[/bold cyan]\n"
             f"Lead: [white]{lead_input.first_name} {lead_input.last_name}[/white] "
-            f"< {lead_input.email} > @ [yellow]{lead_input.company}[/yellow]",
+            f"< {lead_input.email} > @ [yellow]{lead_input.company}[/yellow]"
+            + ("\n[green]🛡️ LangGuard Policy Engine Active[/green]" if LANGGUARD_ENABLED else ""),
             box=box.DOUBLE_EDGE,
         ))
 
@@ -60,11 +63,39 @@ class LeadGenPipeline:
             "final_status":"unknown",
         }
 
+        # ── Policy: Duplicate Detection ──────────────────────────────
+        if policy_engine:
+            dup_result = policy_engine.check("duplicate_detection", {
+                "email":   lead_input.email,
+                "lead_id": "pending",
+                "agent":   "Pipeline",
+            })
+            if dup_result.action == "deny":
+                result["final_status"] = "rejected_duplicate"
+                console.print(f"[red]Pipeline stopped — {dup_result.message}[/red]")
+                return result
+
+        # ── Policy: PII Detection ────────────────────────────────────
+        if policy_engine:
+            pii_result = policy_engine.check("pii_detection", {
+                "lead_id": "pending",
+                "agent":   "Pipeline",
+                "data":    lead_input.model_dump(),
+            })
+            if pii_result.action == "deny":
+                result["final_status"] = "rejected_pii"
+                console.print(f"[red]Pipeline stopped — {pii_result.message}[/red]")
+                return result
+
         # ── Stage 1: Triage ──────────────────────────────────────────
         console.rule("[bold]Stage 1 · Triage Agent[/bold]")
         triage_result = self.triage.process(lead_input)
         result["lead_id"] = triage_result.lead_id
         result["triage"]  = triage_result.model_dump()
+
+        # Update duplicate tracker with real lead_id
+        if policy_engine:
+            policy_engine.update_lead_status(lead_input.email, triage_result.decision)
 
         if triage_result.decision == "rejected":
             result["final_status"] = "rejected"
@@ -73,11 +104,10 @@ class LeadGenPipeline:
 
         if triage_result.decision == "needs_review":
             result["final_status"] = "needs_human_review"
-            console.print("[yellow]⚠ Lead flagged for human review — pipeline paused[/yellow]")
             self._summary(result, time.time() - start)
             return result
 
-        # ── Stage 2: MQL Agent ───────────────────────────────────────
+        # ── Stage 2: MQL ─────────────────────────────────────────────
         console.rule("[bold]Stage 2 · MQL Agent[/bold]")
         mql_result = self.mql.process(triage_result.lead_id)
         result["mql"] = mql_result.model_dump()
@@ -87,44 +117,65 @@ class LeadGenPipeline:
             self._summary(result, time.time() - start)
             return result
 
-        # ── Stage 3: SQL Agent ───────────────────────────────────────
+        # ── Stage 3: SQL ─────────────────────────────────────────────
         console.rule("[bold]Stage 3 · SQL Agent[/bold]")
         sql_result = self.sql_ag.process(mql_result.mql_id)
         result["sql"] = sql_result.model_dump()
 
+        # ── Policy: Approval Gate (high value deals) ─────────────────
+        if policy_engine and sql_result.qualified:
+            approval = policy_engine.check("approval_gate", {
+                "lead_id":          triage_result.lead_id,
+                "sql_id":           sql_result.sql_id or "pending",
+                "estimated_deal_size": sql_result.estimated_deal_size or "",
+                "bant_score":       sql_result.sql_score,
+                "assigned_rep_name": sql_result.assigned_rep_name or "",
+                "agent":            "Pipeline",
+            })
+            if approval.action == "deny":
+                result["final_status"] = "rejected_by_operator"
+                self._summary(result, time.time() - start)
+                return result
+
         if sql_result.qualified:
             result["final_status"] = "sales_owned"
+            if policy_engine:
+                policy_engine.update_lead_status(lead_input.email, "sales_owned")
         else:
             result["final_status"] = "mql_nurture"
+
+        # ── Display tool access map and audit summary ─────────────────
+        if policy_engine and result.get("lead_id"):
+            console.rule("[bold dim]LangGuard Policy Summary[/bold dim]")
+            policy_engine.display_tool_access_map(result["lead_id"])
+            policy_engine.display_audit_summary(result["lead_id"])
 
         self._summary(result, time.time() - start)
         return result
 
     def get_analytics(self, days: int = 30) -> dict:
-        """Run the analytics agent for a funnel report."""
         console.rule("[bold]Analytics Agent[/bold]")
         return self.analytics.process(days=days)
 
     def get_lead_status(self, lead_id: str) -> dict:
-        """Get the full journey for a specific lead."""
         console.rule(f"[bold]Lead Status: {lead_id}[/bold]")
         return self.analytics.process(lead_id=lead_id)
 
     def _summary(self, result: dict, elapsed: float) -> None:
-        """Print a final pipeline summary panel."""
         status = result["final_status"]
         color_map = {
-            "rejected":           "red",
-            "needs_human_review": "yellow",
-            "nurture":            "yellow",
-            "mql_nurture":        "yellow",
-            "sales_owned":        "green",
+            "rejected":              "red",
+            "rejected_duplicate":    "red",
+            "rejected_pii":          "red",
+            "rejected_by_operator":  "red",
+            "needs_human_review":    "yellow",
+            "nurture":               "yellow",
+            "mql_nurture":           "yellow",
+            "sales_owned":           "green",
         }
         color = color_map.get(status, "white")
 
-        triage_str = ""
-        mql_str    = ""
-        sql_str    = ""
+        triage_str = mql_str = sql_str = ""
 
         if result.get("triage"):
             t = result["triage"]
@@ -132,21 +183,26 @@ class LeadGenPipeline:
 
         if result.get("mql"):
             m = result["mql"]
-            mql_str = f"  MQL Score: {m['mql_score']}/100 | Persona: {m.get('persona')} | Stage: {m.get('buying_stage')}\n"
+            stage = str(m.get("buying_stage") or "").replace("BuyingStage.", "")
+            mql_str = f"  MQL Score: {m['mql_score']}/100 | Persona: {m.get('persona')} | Stage: {stage}\n"
 
         if result.get("sql"):
             s = result["sql"]
+            team = str(s.get("assigned_team") or "").replace("SalesTeam.", "")
             sql_str = (
                 f"  BANT Score: {s['sql_score']}/100 | Deal: {s.get('estimated_deal_size')}\n"
-                f"  Assigned Rep: {s.get('assigned_rep_name')} ({s.get('assigned_team')})\n"
+                f"  Assigned Rep: {s.get('assigned_rep_name')} ({team})\n"
                 f"  Next Step: {s.get('next_step')}\n"
             )
+
+        spend = f"  LangGuard Spend: ${policy_engine.get_lead_spend(result['lead_id']):.3f}\n" \
+                if policy_engine and result.get("lead_id") else ""
 
         console.print(Panel(
             f"[bold]Lead ID:[/bold]      {result['lead_id']}\n"
             f"[bold]Final Status:[/bold] [{color}]{status.upper().replace('_',' ')}[/{color}]\n"
             f"[bold]Duration:[/bold]     {elapsed:.2f}s\n\n"
-            f"{triage_str}{mql_str}{sql_str}",
+            f"{triage_str}{mql_str}{sql_str}{spend}",
             title="[bold]Pipeline Complete[/bold]",
             box=box.DOUBLE_EDGE,
         ))
